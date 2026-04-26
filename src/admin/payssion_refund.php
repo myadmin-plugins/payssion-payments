@@ -17,21 +17,21 @@ function payssion_refund()
 	function_requirements('has_acl');
 	$continue = true; $failed = false; $updateInvoice = false; 
 	$smarty = new TFSmarty;
-	if ($GLOBALS['tf']->ima != 'admin' || !has_acl('client_billing')) {
+	if (\MyAdmin\App::ima() != 'admin' || !has_acl('client_billing')) {
 		$failed .= '<div>Not Admin or you lack the permissions to view this page.</div>';
 		$continue = false;
 	}
-	if (!isset($GLOBALS['tf']->variables->request['transaction']) || !$GLOBALS['tf']->variables->request['transaction']) {
+	if (!isset(\MyAdmin\App::variables()->request['transaction']) || !\MyAdmin\App::variables()->request['transaction']) {
 		$failed .= '<div>Transaction ID is not valid</div>';
 		$continue = false;
 	}
 	if ($continue) {
-		$smarty->assign('transaction', $GLOBALS['tf']->variables->request['transaction']);
+		$smarty->assign('transaction', \MyAdmin\App::variables()->request['transaction']);
 		$db = get_module_db('default');
 		$dbIn = clone $db;
 		$dbInP = clone $db;
 		$dbU = clone $db;
-		$db->query("SELECT * FROM payssion WHERE transaction_id = '{$db->real_escape($GLOBALS['tf']->variables->request['transaction'])}' AND state IN ('completed', 'paid_partial')");
+		$db->query("SELECT * FROM payssion WHERE transaction_id = '{$db->real_escape(\MyAdmin\App::variables()->request['transaction'])}' AND state IN ('completed', 'paid_partial')");
 		if ($db->num_rows() > 0) {
 			$db->next_record(MYSQL_ASSOC);
 			$payment_trans = $db->Record;
@@ -53,13 +53,13 @@ function payssion_refund()
 				];
 				$pInvRows[$dbIn->Record['invoices_id']] = $dbIn->Record;
 			}
-			if (isset($GLOBALS['tf']->variables->request['submit'])) {
-				if ($payment_trans['paid'] < $GLOBALS['tf']->variables->request['refund_amount']) {
+			if (isset(\MyAdmin\App::variables()->request['submit'])) {
+				if ($payment_trans['paid'] < \MyAdmin\App::variables()->request['refund_amount']) {
 					$failed .= '<div>You entered Refund amount is higher than paid amount!</div>';
 				}
-				if (isset($GLOBALS['tf']->variables->request['paymentInv']) && !empty($GLOBALS['tf']->variables->request['paymentInv'])) {
+				if (isset(\MyAdmin\App::variables()->request['paymentInv']) && !empty(\MyAdmin\App::variables()->request['paymentInv'])) {
 					myadmin_log('admin', 'info', 'Going with Payssion Refund', __LINE__, __FILE__);
-					$requestVars = $GLOBALS['tf']->variables->request;
+					$requestVars = \MyAdmin\App::variables()->request;
 					$requestData = [
 						'amount' => $requestVars['refund_amount'],
 						'currency' => $payment_trans['currency'],
@@ -91,7 +91,7 @@ function payssion_refund()
 						$failed .= '<div>Something went wrong! Unable to refund transaction!</div>';
 					}
 					if ($updateInvoice) {
-						$amountRemaining = $GLOBALS['tf']->variables->request['refund_amount'];
+						$amountRemaining = \MyAdmin\App::variables()->request['refund_amount'];
 						$totalInvoices = count($requestVars['paymentInv']);
 						$count = 1;
 						$invoice = new \MyAdmin\Orm\Invoice($db);
@@ -119,14 +119,14 @@ function payssion_refund()
 								->setCurrency($pInvRows[$vars]['invoices_currency'])
 								->setModule($pInvRows[$vars]['invoices_module'])
 								->save();
-							if ($GLOBALS['tf']->variables->request['charge_inv'] == 'yes') {
+							if (\MyAdmin\App::variables()->request['charge_inv'] == 'yes') {
 								$dbU->query("UPDATE invoices SET invoices_paid = 0 WHERE invoices_id = {$pInvRows[$vars]['invoices_extra']}");
 							}
 							$dbU->query(make_insert_query('history_log', [
 								'history_id' => null,
-								'history_sid' => $GLOBALS['tf']->session->sessionid,
+								'history_sid' => \MyAdmin\App::session()->sessionid,
 								'history_timestamp' => mysql_now(),
-								'history_creator' => $GLOBALS['tf']->session->account_id,
+								'history_creator' => \MyAdmin\App::session()->account_id,
 								'history_owner' => $pInvRows[$vars]['invoices_custid'],
 								'history_section' => 'payssion_refund',
 								'history_type' => $response['refund']['transaction_id'],
